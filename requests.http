@@ -1,0 +1,45 @@
+### Ativando o Connector do Debezium
+
+POST http://localhost:8083/connectors/
+Accept: application/json
+Content-Type: application/json
+
+< ./src/connector/register-postgres.json
+
+### Criando um registro na base
+
+POST http://localhost:8080/
+accept: */*
+Content-Type: application/json
+
+{
+  "name": "Coca Cola 2",
+  "price": 10
+}
+
+### Criando outro registro na base
+
+POST http://localhost:8080/
+accept: */*
+Content-Type: application/json
+
+{
+  "name": "Coca Cola Zero",
+  "price": 12
+}
+
+> {% client.global.set("product_id", response.body.json.id); %}
+
+### Alterando registro na base
+
+PATCH http://localhost:8080/
+accept: */*
+Content-Type: application/json
+
+{
+  "id": {{product_id}},
+  "name": "Coca Cola Zero",
+  "price": 13
+}
+
+###

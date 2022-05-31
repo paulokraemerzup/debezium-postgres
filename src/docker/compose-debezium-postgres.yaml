@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+
+  postgres:
+    image: debezium/postgres:14
+    container_name: postgres
+    networks:
+      - debezium
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: productdb
+
+  zookeeper:
+    image: debezium/zookeeper:1.9
+    container_name: zookeeper
+    networks:
+      - debezium
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+
+  kafka:
+    image: debezium/kafka:1.9
+    container_name: kafka
+    restart: always
+    networks:
+      - debezium
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    expose:
+      - "9093"
+    depends_on:
+      - zookeeper
+    environment:
+      ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_EXT://localhost:29092,LISTENER_INT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INT:PLAINTEXT,LISTENER_EXT:PLAINTEXT
+      KAFKA_LISTENERS: LISTENER_INT://0.0.0.0:9092,LISTENER_EXT://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INT
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+
+  connect:
+    image: debezium/connect:1.9
+    container_name: connect
+    hostname: connect
+    networks:
+       - debezium
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_source_connect_statuses
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_PRODUCER_MAX_REQUEST_SIZE: 3145728
+      CONNECT_CONSUMER_MAX_PARTITION_FETCH_BYTES: 3145728
+
+#  control-center:
+#    image: confluentinc/cp-enterprise-control-center
+#    container_name: control-center
+#    networks:
+#      - debezium
+#    depends_on:
+#      - zookeeper
+#      - kafka
+#      - connect
+#    ports:
+#      - "9021:9021"
+#    environment:
+#      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+#      CONTROL_CENTER_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+#      CONTROL_CENTER_CONNECT_CLUSTER: 'connect:8083'
+#      CONTROL_CENTER_REPLICATION_FACTOR: 1
+#      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+#      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+#      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+#      PORT: 9021
+
+networks:
+  debezium:
+    driver: bridge
